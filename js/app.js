@@ -3,7 +3,7 @@
 // FRONTEND JAVASCRIPT
 // ============================================================
 
-const API_BASE = "http://localhost:5241/api";
+const API_BASE = "https://smarthospitalapi.onrender.com/api";
 
 let currentSection = "dashboard";
 
