@@ -519,8 +519,23 @@ function renderPatients() {
                                 Delete
 
                             </button>
+                            
+                            ${
 
-                        </div>
+                              String(patient.status || "").toUpperCase() === "WITH DOCTOR"
+                              ? `
+                         <button
+
+                            class="success-btn"
+                onclick="completeConsultation(${patient.token})">
+
+                Complete Consultation
+
+            </button>
+        `
+        : ""
+}
+</div>
 
                     </td>
 
@@ -1446,6 +1461,60 @@ async function callNextPatient() {
 
     }
 
+}
+
+// ============================================================
+// COMPLETE CONSULTATION
+// ============================================================
+
+async function completeConsultation(token) {
+
+    const confirmed = confirm(
+        `Complete consultation for patient #${token}?`
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+
+        const data = await apiFetch(
+            `/queue/complete/${token}`,
+            {
+                method: "POST"
+            }
+        );
+
+        alert(
+            data.message ||
+            "Consultation completed successfully."
+        );
+
+        // Refresh dashboard
+        await loadDashboard();
+
+        // Refresh patients
+        await loadPatients();
+
+        // Refresh queue
+        await loadQueue();
+
+        // Refresh doctors
+        if (typeof loadDoctors === "function") {
+            await loadDoctors();
+        }
+
+    }
+    catch (error) {
+
+        console.error(
+            "Complete consultation error:",
+            error
+        );
+
+        alert(error.message);
+    }
 }
 
 
