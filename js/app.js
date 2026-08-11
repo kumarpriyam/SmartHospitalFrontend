@@ -4,6 +4,10 @@
 // ============================================================
 
 const API_BASE = "https://smarthospitalapi.onrender.com/api";
+let authToken = localStorage.getItem("smartHospitalToken");
+let currentUser = JSON.parse(
+    localStorage.getItem("smartHospitalUser") || "null"
+);
 
 let currentSection = "dashboard";
 
@@ -21,20 +25,45 @@ async function apiFetch(endpoint, options = {}) {
 
     try {
 
-        const response = await fetch(
-            API_BASE + endpoint,
-            {
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                ...options
-            }
-        );
+        const headers = {
+            "Content-Type": "application/json"
+        };
 
+        // JWT token attach
+        if (authToken) {
+
+            headers["Authorization"] =
+                `Bearer ${authToken}`;
+
+        }
+
+        const response =
+            await fetch(
+                API_BASE + endpoint,
+                {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        ...(options.headers || {})
+                    }
+                }
+            );
+
+        // Unauthorized
+        if (response.status === 401) {
+
+            logout();
+
+            throw new Error(
+                "Session expired. Please login again."
+            );
+
+        }
 
         if (!response.ok) {
 
-            let errorMessage = "Request failed";
+            let errorMessage =
+                "Request failed";
 
             try {
 
@@ -47,12 +76,15 @@ async function apiFetch(endpoint, options = {}) {
                     errorData.title ||
                     errorMessage;
 
-            } catch (_) {}
+            }
 
-            throw new Error(errorMessage);
+            catch (_) {}
+
+            throw new Error(
+                errorMessage
+            );
 
         }
-
 
         return await response.json();
 
@@ -60,12 +92,17 @@ async function apiFetch(endpoint, options = {}) {
 
     catch (error) {
 
-        console.error("API Error:", error);
+        console.error(
+            "API Error:",
+            error
+        );
 
-        if (error.name === "TypeError") {
+        if (
+            error.name === "TypeError"
+        ) {
 
             throw new Error(
-                "Unable to connect to Smart Hospital API. Make sure ASP.NET API is running."
+                "Unable to connect to Smart Hospital API."
             );
 
         }
@@ -3570,6 +3607,365 @@ function setText(
     }
 
 }
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+function showLoginScreen() {
+
+    const loginScreen =
+        document.getElementById(
+            "loginScreen"
+        );
+
+    const appContent =
+        document.getElementById(
+            "appContent"
+        );
+
+    if (loginScreen) {
+
+        loginScreen.style.display =
+            "flex";
+
+    }
+
+    if (appContent) {
+
+        appContent.style.display =
+            "none";
+
+    }
+
+}
+
+
+function showApplication() {
+
+    const loginScreen =
+        document.getElementById(
+            "loginScreen"
+        );
+
+    const appContent =
+        document.getElementById(
+            "appContent"
+        );
+
+    if (loginScreen) {
+
+        loginScreen.style.display =
+            "none";
+
+    }
+
+    if (appContent) {
+
+        appContent.style.display =
+            "block";
+
+    }
+
+}
+
+
+async function loginUser(
+    username,
+    password
+) {
+
+    const loginButton =
+        document.getElementById(
+            "loginButton"
+        );
+
+    const loginMessage =
+        document.getElementById(
+            "loginMessage"
+        );
+
+    try {
+
+        if (loginButton) {
+
+            loginButton.disabled =
+                true;
+
+            loginButton.textContent =
+                "Logging in...";
+
+        }
+
+        if (loginMessage) {
+
+            loginMessage.textContent =
+                "";
+
+            loginMessage.className =
+                "form-message";
+
+        }
+
+        const response =
+            await fetch(
+                API_BASE + "/auth/login",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        username:
+                            username.trim(),
+
+                        password:
+                            password
+                    })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.message ||
+                "Invalid username or password."
+            );
+
+        }
+
+
+        if (
+            !data.success ||
+            !data.token
+        ) {
+
+            throw new Error(
+                "Login response is invalid."
+            );
+
+        }
+
+
+        // Save JWT
+        authToken =
+            data.token;
+
+        localStorage.setItem(
+            "smartHospitalToken",
+            data.token
+        );
+
+
+        // Save user information
+        currentUser =
+            data.user;
+
+        localStorage.setItem(
+            "smartHospitalUser",
+            JSON.stringify(
+                data.user
+            )
+        );
+
+
+        if (loginMessage) {
+
+            loginMessage.textContent =
+                "Login successful!";
+
+            loginMessage.className =
+                "form-message success-message";
+
+        }
+
+
+        // Show application
+        showApplication();
+
+
+        // Load dashboard
+        currentSection =
+            "dashboard";
+
+        loadDashboard();
+
+        loadPatients();
+
+        loadDoctors();
+
+        loadAppointments();
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Login Error:",
+            error
+        );
+
+
+        if (loginMessage) {
+
+            loginMessage.textContent =
+                error.message;
+
+            loginMessage.className =
+                "form-message error-message";
+
+        }
+
+    }
+
+    finally {
+
+        if (loginButton) {
+
+            loginButton.disabled =
+                false;
+
+            loginButton.textContent =
+                "Login";
+
+        }
+
+    }
+
+}
+
+
+// ============================================================
+// LOGOUT
+// ============================================================
+
+function logout() {
+
+    authToken = null;
+
+    currentUser = null;
+
+    localStorage.removeItem(
+        "smartHospitalToken"
+    );
+
+    localStorage.removeItem(
+        "smartHospitalUser"
+    );
+
+
+    showLoginScreen();
+
+
+    const username =
+        document.getElementById(
+            "loginUsername"
+        );
+
+    const password =
+        document.getElementById(
+            "loginPassword"
+        );
+
+    const message =
+        document.getElementById(
+            "loginMessage"
+        );
+
+
+    if (username) {
+
+        username.value = "";
+
+    }
+
+    if (password) {
+
+        password.value = "";
+
+    }
+
+    if (message) {
+
+        message.textContent = "";
+
+        message.className =
+            "form-message";
+
+    }
+
+}
+
+
+// ============================================================
+// LOGIN FORM
+// ============================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        const loginForm =
+            document.getElementById(
+                "loginForm"
+            );
+
+
+        if (loginForm) {
+
+            loginForm.addEventListener(
+                "submit",
+                async function (event) {
+
+                    event.preventDefault();
+
+
+                    const username =
+                        document.getElementById(
+                            "loginUsername"
+                        ).value;
+
+
+                    const password =
+                        document.getElementById(
+                            "loginPassword"
+                        ).value;
+
+
+                    await loginUser(
+                        username,
+                        password
+                    );
+
+                }
+            );
+
+        }
+
+
+        // Existing login session
+        if (authToken) {
+
+            showApplication();
+
+        }
+
+        else {
+
+            showLoginScreen();
+
+        }
+
+    }
+);
 
 
 // ============================================================
